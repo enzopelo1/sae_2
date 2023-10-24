@@ -1,76 +1,87 @@
-import tkinter as tk
-from tkinter import filedialog
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QFileDialog, QMenuBar, QAction
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QImageWriter
+from PyQt5.QtCore import Qt
 import cv2
-import numpy as np
-from PIL import Image, ImageTk
 
-# Déclarer la variable canvas en dehors des fonctions
-canvas = None
+class ImageProcessingApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Traitement d'images astronomiques")
+        self.setGeometry(100, 100, 1024, 600)
 
-# Fonction pour charger une image
-def charger_image():
-    global canvas  # Utilisez la variable canvas globale
-    file_path = filedialog.askopenfilename(title="Sélectionnez l'image astronomique")
-    if file_path:
-        image = Image.open(file_path)
-        image = image.resize((700, 400))  # Redimensionne l'image
-        photo = ImageTk.PhotoImage(image)
-        canvas.create_image(0, 0, anchor=tk.NW, image=photo)
-        canvas.image = photo
-        global image_to_process
-        image_to_process = cv2.imread(file_path)
+        # Créer une zone centrale pour afficher les images
+        self.central_widget = QGraphicsView(self)
+        self.setCentralWidget(self.central_widget)
+        self.setStyleSheet("background-color: black; color: white;")
 
-# Fonction pour soustraire le gradient de l'image
-def soustraire_gradient():
-    if image_to_process is not None:
-        gradient_path = filedialog.askopenfilename(title="Sélectionnez le fichier de gradient")
-        if gradient_path:
-            gradient = cv2.imread(gradient_path)
+        self.scene = QGraphicsScene()
+        self.central_widget.setScene(self.scene)
+
+        self.text_label = QLabel("Traitement d'une image astronomique", self)
+        self.text_label.setGeometry(485, 200, 300, 30)
+        
+        # Créer une barre de menu
+        menubar = self.menuBar()
+        
+        # Créer un menu "Fichier"
+        file_menu = menubar.addMenu("Fichier")
+        
+        # Ajouter une action pour charger une image
+        load_action = QAction("Charger une image", self)
+        load_action.triggered.connect(self.load_image)
+        file_menu.addAction(load_action)
+        
+        # Ajouter une action pour soustraire le gradient
+        subtract_action = QAction("Soustraire le gradient", self)
+        subtract_action.triggered.connect(self.subtract_gradient)
+        file_menu.addAction(subtract_action)
+
+        # Variables pour stocker les images
+        self.image = None
+        self.processed_image = None
+
+    def load_image(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Sélectionnez l'image astronomique", "", "Images (*.jpg *.png *.bmp);;Tous les fichiers (*)", options=options)
+        if file_name:
+            self.image = cv2.imread(file_name)
+            if self.image is not None:
+                self.update_display()
+                
+    def subtract_gradient(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Sélectionnez le fichier de gradient", "", "Images (*.jpg *.png *.bmp);;Tous les fichiers (*)", options=options)
+        if file_name:
+            gradient = cv2.imread(file_name)
             if gradient is not None:
-                image_soustraite = cv2.subtract(image_to_process, gradient)
+                self.processed_image = cv2.subtract(self.image, gradient)
+                self.update_display(self.processed_image)
 
-                # Afficher les images côte à côte dans le canevas
-                canvas.delete("all")
+    def update_display(self, img=None):
+        if img is None:
+            img = self.image
 
-                # Convertir les images OpenCV en images PIL
-                image_to_display = Image.fromarray(cv2.cvtColor(image_to_process, cv2.COLOR_BGR2RGB))
-                image_soustraite_display = Image.fromarray(cv2.cvtColor(image_soustraite, cv2.COLOR_BGR2RGB))
+        # Redimensionner l'image pour qu'elle soit plus petite
+        if img is not None:
+            height, width, channel = img.shape
+            max_height = self.central_widget.height()  # Hauteur maximale de la fenêtre
+            max_width = self.central_widget.width() // 2  # Largeur maximale de la moitié de la fenêtre
 
-                # Afficher l'image d'origine à gauche
-                image_to_display.thumbnail((350, 400))
-                image_to_display = ImageTk.PhotoImage(image_to_display)
-                canvas.create_image(10, 10, anchor=tk.NW, image=image_to_display)
+            if height > max_height or width > max_width:
+                scale_factor = min(max_width / width, max_height / height)
+                img = cv2.resize(img, (int(scale_factor * width), int(scale_factor * height)))
 
-                # Afficher l'image soustraite à droite
-                image_soustraite_display.thumbnail((350, 400))
-                image_soustraite_display = ImageTk.PhotoImage(image_soustraite_display)
-                canvas.create_image(370, 10, anchor=tk.NW, image=image_soustraite_display)
+            bytes_per_line = 3 * img.shape[1]
+            q_image = QImage(img.data, img.shape[1], img.shape[0], bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+            pixmap = QPixmap.fromImage(q_image)
+            item = QGraphicsPixmapItem(pixmap)
+            self.scene.clear()
+            self.scene.addItem(item)
 
-                canvas.image = image_to_display, image_soustraite_display
-
-# Configuration de la fenêtre principale
-fenetre = tk.Tk()
-fenetre.title("Traitement d'images astronomiques")
-
-# Obtenir la taille de l'écran
-screen_width = fenetre.winfo_screenwidth()
-screen_height = fenetre.winfo_screenheight()
-
-# Configurer la taille de la fenêtre pour occuper toute la taille de l'écran
-fenetre.geometry(f"{screen_width}x{screen_height}")
-fenetre.configure(bg="black")
-# Création d'un bouton pour charger l'image
-charger_bouton = tk.Button(fenetre, text="Charger une image", command=charger_image, bg="black", fg="white")
-charger_bouton.pack()
-
-# Création d'un bouton pour soustraire le gradient
-soustraire_bouton = tk.Button(fenetre, text="Soustraire le gradient", command=soustraire_gradient, bg="black", fg="white")
-soustraire_bouton.pack()
-
-# Création d'un canevas pour afficher les images côte à côte
-canvas = tk.Canvas(fenetre, width=720, height=400, bg="black")
-canvas.pack()
-
-image_to_process = None
-
-fenetre.mainloop()
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = ImageProcessingApp()
+    window.showMaximized()  # Afficher la fenêtre en plein écran
+    window.show()
+    sys.exit(app.exec_())
