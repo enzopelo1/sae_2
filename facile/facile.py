@@ -4,13 +4,14 @@ from PyQt5.QtGui import QPixmap, QImage, QImageReader, QImageWriter
 from PyQt5.QtCore import Qt
 import cv2
 
+
 class ImageProcessingApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Traitement d'images astronomiques")
         self.setGeometry(100, 100, 1024, 600)
 
-        # Créer une zone centrale pour afficher les images
+        # Création d'une zone centrale pour afficher les images
         self.central_widget = QGraphicsView(self)
         self.setCentralWidget(self.central_widget)
         self.setStyleSheet("background-color: black; color: white;")
@@ -20,19 +21,19 @@ class ImageProcessingApp(QMainWindow):
 
         self.text_label = QLabel("Traitement d'une image astronomique", self)
         self.text_label.setGeometry(485, 200, 300, 30)
-        
-        # Créer une barre de menu
+
+        # Création d'une barre de menu
         menubar = self.menuBar()
-        
-        # Créer un menu "Fichier"
+
+        # Création d'un menu "Fichier"
         file_menu = menubar.addMenu("Fichier")
-        
-        # Ajouter une action pour charger une image
+
+        # Ajoute d'une action pour charger une image
         load_action = QAction("Charger une image", self)
         load_action.triggered.connect(self.load_image)
         file_menu.addAction(load_action)
-        
-        # Ajouter une action pour soustraire le gradient
+
+        # Ajout d'une action pour soustraire le gradient
         subtract_action = QAction("Soustraire le gradient", self)
         subtract_action.triggered.connect(self.subtract_gradient)
         file_menu.addAction(subtract_action)
@@ -43,15 +44,17 @@ class ImageProcessingApp(QMainWindow):
 
     def load_image(self):
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Sélectionnez l'image astronomique", "", "Images (*.jpg *.png *.bmp);;Tous les fichiers (*)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Sélectionnez l'image astronomique", "", "Images (*.jpg *.png *.bmp);;Tous les fichiers (*)", options=options)
         if file_name:
             self.image = cv2.imread(file_name)
             if self.image is not None:
                 self.update_display()
-                
+
     def subtract_gradient(self):
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Sélectionnez le fichier de gradient", "", "Images (*.jpg *.png *.bmp);;Tous les fichiers (*)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Sélectionnez le fichier de gradient", "", "Images (*.jpg *.png *.bmp);;Tous les fichiers (*)", options=options)
         if file_name:
             gradient = cv2.imread(file_name)
             if gradient is not None:
@@ -62,26 +65,30 @@ class ImageProcessingApp(QMainWindow):
         if img is None:
             img = self.image
 
-        # Redimensionner l'image pour qu'elle soit plus petite
+        # Redimensionnement de l'image pour qu'elle soit plus petite
         if img is not None:
             height, width, channel = img.shape
             max_height = self.central_widget.height()  # Hauteur maximale de la fenêtre
-            max_width = self.central_widget.width() // 2  # Largeur maximale de la moitié de la fenêtre
+            # Largeur maximale de la moitié de la fenêtre
+            max_width = self.central_widget.width() // 2
 
             if height > max_height or width > max_width:
                 scale_factor = min(max_width / width, max_height / height)
-                img = cv2.resize(img, (int(scale_factor * width), int(scale_factor * height)))
+                img = cv2.resize(
+                    img, (int(scale_factor * width), int(scale_factor * height)))
 
             bytes_per_line = 3 * img.shape[1]
-            q_image = QImage(img.data, img.shape[1], img.shape[0], bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+            q_image = QImage(
+                img.data, img.shape[1], img.shape[0], bytes_per_line, QImage.Format_RGB888).rgbSwapped()
             pixmap = QPixmap.fromImage(q_image)
             item = QGraphicsPixmapItem(pixmap)
             self.scene.clear()
             self.scene.addItem(item)
 
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = ImageProcessingApp()
-    window.showMaximized()  # Afficher la fenêtre en plein écran
+    window.showMaximized()
     window.show()
     sys.exit(app.exec_())
